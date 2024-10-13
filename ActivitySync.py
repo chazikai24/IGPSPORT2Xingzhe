@@ -101,7 +101,7 @@ def syncData(username, password, garmin_email = None, garmin_password = None):
         else:
             dt        = datetime.strptime(activity["StartTime"], "%Y-%m-%d %H:%M:%S")
             #非本月IGP数据跳过
-            if dt.month !=  now.now.month
+            if dt.month !=  now.month
                 break
             
             dt2       = datetime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, tzinfo=timezone)
