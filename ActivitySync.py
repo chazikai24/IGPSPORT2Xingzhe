@@ -90,6 +90,7 @@ def syncData(username, password, garmin_email = None, garmin_password = None):
     sync_data = []
     # get not upload activity
     timezone = ZoneInfo('Asia/Shanghai')  # to Shanghai timezero in Gtihub Action env
+    now = datetime.now()
 
     for activity in activities:
         if type == 2: #garmin
@@ -99,6 +100,10 @@ def syncData(username, password, garmin_email = None, garmin_password = None):
             mk_time   = int(s_time) * 1000
         else:
             dt        = datetime.strptime(activity["StartTime"], "%Y-%m-%d %H:%M:%S")
+            #非本月IGP数据跳过
+            if dt.month !=  now.now.month
+                break
+            
             dt2       = datetime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, tzinfo=timezone)
             s_time    = dt2.timestamp()
             mk_time   = int(s_time) * 1000
