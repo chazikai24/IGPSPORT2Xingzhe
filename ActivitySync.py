@@ -52,7 +52,7 @@ def syncData(username, password, garmin_email = None, garmin_password = None):
         res = session.post(url, data, headers=headers)
 
         # get igpsport list
-        url = "https://%s/Activity/ActivityList?pageindex=3" % igp_host
+        url = "https://%s/Activity/ActivityList" % igp_host
         res = session.get(url)
         result = json.loads(res.text, strict=False)
 
