@@ -38,7 +38,7 @@ def syncData(username, password, garmin_email = None, garmin_password = None):
         garth.configure(domain="garmin.cn")
         garth.login(garmin_email, garmin_password)
         activities = garth.connectapi(
-            f"/activitylist-service/activities/search/activities",
+            f"/activitylist-service/activities/search/activities?pageindex=2",
             params={"activityType": "cycling", "limit": 10, "start": 0, 'excludeChildren': False},
         )
     else:
