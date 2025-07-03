@@ -1,5 +1,5 @@
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import os
 import requests, json
@@ -44,19 +44,47 @@ def syncData(username, password, garmin_email = None, garmin_password = None):
     else:
         print("同步IGP数据")
 
-        url = "https://%s/Auth/Login" % igp_host
+        #url = "https://%s/Auth/Login" % igp_host
+        url = "https://prod.zh.igpsport.com/service/auth/account/login"
         data = {
             'username': username,
             'password': password,
+            'appId': 'igpsport-web'
         }
-        res = session.post(url, data, headers=headers)
+        headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json, text/plain, */*',
+                'Origin': 'https://app.zh.igpsport.com',
+                'Referer': 'https://app.zh.igpsport.com/',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
+            }
+        res = requests.post(url, json=data, headers=headers, timeout=30)
+        response_data = res.json()
+        access_token = response_data['data']['access_token']
 
         # get igpsport list
-        url = "https://%s/Activity/ActivityList" % igp_host
-        res = session.get(url)
-        result = json.loads(res.text, strict=False)
-
-        activities = result["item"]
+        #url = "https://%s/Activity/ActivityList" % igp_host
+        url = "https://prod.zh.igpsport.com/service/web-gateway/web-analyze/activity/queryMyActivity"
+        params = {
+                'pageNo': 1,
+                'pageSize': 20,
+                'reqType': 0,
+                'sort': 1
+            }
+        headers = {
+                    'Accept': 'application/json, text/plain, */*',
+                    'Authorization': f'Bearer {access_token}',
+                    'Origin': 'https://app.zh.igpsport.com',
+                    'Referer': 'https://app.zh.igpsport.com/',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+                    'timezone': 'Asia/Shanghai',
+                    'qiwu-app-version': '1.0.0'
+                }
+        res = requests.get(url,params=params, headers=headers, timeout=30)
+        #result = json.loads(res.text, strict=False)
+        result = res.json()
+        activities = result.get('data', {}).get('rows', [])
+        #result = json.loads(res.text)
 
     # login xingzhe account
     encrypter_public_key    = "-----BEGIN PUBLIC KEY-----\nMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDmuQkBbijudDAJgfffDeeIButq\nWHZvUwcRuvWdg89393FSdz3IJUHc0rgI/S3WuU8N0VePJLmVAZtCOK4qe4FY/eKm\nWpJmn7JfXB4HTMWjPVoyRZmSYjW4L8GrWmh51Qj7DwpTADadF3aq04o+s1b8LXJa\n8r6+TIqqL5WUHtRqmQIDAQAB\n-----END PUBLIC KEY-----\n"
@@ -75,7 +103,9 @@ def syncData(username, password, garmin_email = None, garmin_password = None):
     print("用户名:%s" % result['data']['username'])
 
     # get current month data
-    url     = "https://www.imxingzhe.com/api/v1/pgworkout/?offset=0&limit=10&sport=3&year=&month="
+    #url     = "https://www.imxingzhe.com/api/v1/pgworkout/?offset=0&limit=10&sport=3&year=&month="
+    #不限制骑行类型，sport=12为室内骑行
+    url     = "https://www.imxingzhe.com/api/v1/pgworkout/?offset=0&limit=20&year=&month="
     res     = session.get(url, headers=headers)
     result  = json.loads(res.text, strict=False)
     data  = result["data"]["data"]
@@ -91,22 +121,36 @@ def syncData(username, password, garmin_email = None, garmin_password = None):
             s_time    = dt2.timestamp()
             mk_time   = int(s_time) * 1000
         else:
-            dt        = datetime.strptime(activity["StartTime"], "%Y-%m-%d %H:%M:%S")
-            dt2       = datetime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, tzinfo=timezone)
-            s_time    = dt2.timestamp()
-            mk_time   = int(s_time) * 1000
+            #dt        = datetime.strptime(activity["startTime"], "%Y-%m-%d %H:%M:%S")
+            #dt2       = datetime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, tzinfo=timezone)
+            #s_time    = dt2.timestamp()
+            #mk_time   = int(s_time) * 1000
+            #igp api返回的日期格式是 "YYYY.MM.DD"
+            igp_date = activity["startTime"]
+            #igp api返回的骑行距离取整
+            igp_Distance = int(float(activity["rideDistance"]))
+            #igp api返回的骑行时间取整
+            igp_MovingTime = int(float(activity["totalMovingTime"]))
 
         need_sync = True
 
         for item in data:
-            if item["start_time"] == mk_time:
+            #将行者start_time时间戳转换为日期
+            xz_date = (datetime.fromtimestamp(int(item["start_time"])/1000) + timedelta(hours=8)).strftime("%Y.%m.%d")
+            #行者返回的骑行距离取整
+            xz_Distance = int(float(item["distance"]))
+            #行者返回的骑行时间(取样观察：sport=12的骑行台数据会比igp多1)
+            xz_MovingTime = item["duration"]
+            if  item["sport"] == 12 :
+                xz_MovingTime -= 1
+            
+            if xz_date == igp_date and xz_Distance == igp_Distance and xz_MovingTime == igp_MovingTime :
                 need_sync = False
                 break
         if need_sync:
             sync_data.append(activity)
 
     if len(sync_data) == 0:
-
         print("nothing data need sync")
 
     else:
@@ -135,20 +179,21 @@ def syncData(username, password, garmin_email = None, garmin_password = None):
                         "fit_file": (rid+"_ACTIVITY.fit", data, 'application/octet-stream')
                     })
             else:
-                rid     = sync_item["RideId"]
+                rid     = sync_item["rideId"]
                 rid     = str(rid)
                 print("sync rid:" + rid)
 
-                fit_url = "https://%s/fit/activity?type=0&rideid=%s" % (igp_host, rid)
+                #fit_url = "https://%s/fit/activity?type=0&rideid=%s" % (igp_host, rid)
+                fit_url = sync_item["fitOssPath"]
                 res     = session.get(fit_url)
 
                 result = session.post(upload_url, files={
                     "file_source": (None, "undefined", None),
-                    "fit_filename": (None, sync_item["StartTime"]+'.fit', None),
+                    "fit_filename": (None, sync_item["startTime"]+'.fit', None),
                     "md5": (None, hashlib.md5(res.content).hexdigest(), None),
-                    "name": (None, 'IGPSPORT-'+sync_item["StartTime"], None),
+                    "name": (None, 'IGPSPORT-'+sync_item["startTime"], None),
                     "sport": (None, 3, None),  # 骑行
-                    "fit_file": (sync_item["StartTime"]+'.fit', res.content, 'application/octet-stream')
+                    "fit_file": (sync_item["startTime"]+'.fit', res.content, 'application/octet-stream')
                 })
 
 activity = syncData(os.getenv("USERNAME"), os.getenv("PASSWORD"), os.getenv("GARMIN_EMAIL"), os.getenv("GARMIN_PASSWORD"))
