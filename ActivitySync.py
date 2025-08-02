@@ -139,14 +139,17 @@ def syncData(username, password, garmin_email = None, garmin_password = None):
             xz_date = (datetime.fromtimestamp(int(item["start_time"])/1000) + timedelta(hours=8)).strftime("%Y.%m.%d")
             #行者返回的骑行距离取整
             xz_Distance = int(float(item["distance"]))
-            #行者返回的骑行时间(取样观察：sport=12的骑行台数据会比igp多1)
+            #行者返回的骑行时间(取样观察：sport=12的骑行台数据与igp不一致且无规律)
             xz_MovingTime = item["duration"]
+            #sport=12的骑行台数据只比对骑行时间与距离
             if  item["sport"] == 12 :
-                xz_MovingTime -= 1
-            
-            if xz_date == igp_date and xz_Distance == igp_Distance and xz_MovingTime == igp_MovingTime :
-                need_sync = False
-                break
+                if xz_date == igp_date and xz_Distance == igp_Distance :
+                    need_sync = False
+                    break
+            else:
+                if xz_date == igp_date and xz_Distance == igp_Distance and xz_MovingTime == igp_MovingTime :
+                    need_sync = False
+                    break
         if need_sync:
             sync_data.append(activity)
 
@@ -197,3 +200,4 @@ def syncData(username, password, garmin_email = None, garmin_password = None):
                 })
 
 activity = syncData(os.getenv("USERNAME"), os.getenv("PASSWORD"), os.getenv("GARMIN_EMAIL"), os.getenv("GARMIN_PASSWORD"))
+
