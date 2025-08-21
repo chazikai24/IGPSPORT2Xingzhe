@@ -186,8 +186,21 @@ def syncData(username, password, garmin_email = None, garmin_password = None):
                 rid     = str(rid)
                 print("sync rid:" + rid)
 
-                #fit_url = "https://%s/fit/activity?type=0&rideid=%s" % (igp_host, rid)
-                fit_url = sync_item["fitOssPath"]
+                
+                fit_json = "https://prod.zh.igpsport.com/service/web-gateway/web-analyze/activity/getDownloadUrl/%s" % rid
+                res = session.get(fit_json)
+                json_result = json.loads(res.text, strict=False)
+                #判断是否存在fitUrl
+                if 'data' in json_result:
+                    fit_url = json_result['data']
+                else:
+                    print("data not found")
+                    continue
+
+                res     = session.get(fit_url)
+
+
+                
                 res     = session.get(fit_url)
 
                 result = session.post(upload_url, files={
@@ -199,5 +212,8 @@ def syncData(username, password, garmin_email = None, garmin_password = None):
                     "fit_file": (sync_item["startTime"]+'.fit', res.content, 'application/octet-stream')
                 })
 
+            print("sync result:" + result.text)
+
 activity = syncData(os.getenv("USERNAME"), os.getenv("PASSWORD"), os.getenv("GARMIN_EMAIL"), os.getenv("GARMIN_PASSWORD"))
+
 
