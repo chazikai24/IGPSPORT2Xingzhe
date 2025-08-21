@@ -195,6 +195,7 @@ def syncData(username, password, garmin_email = None, garmin_password = None):
                 else:
                     print("data not found")
                     continue
+                print("fit_url:" + fit_url)
                 res     = session.get(fit_url)
                 result = session.post(upload_url, files={
                     "file_source": (None, "undefined", None),
@@ -208,6 +209,7 @@ def syncData(username, password, garmin_email = None, garmin_password = None):
             print("sync result:" + result.text)
 
 activity = syncData(os.getenv("USERNAME"), os.getenv("PASSWORD"), os.getenv("GARMIN_EMAIL"), os.getenv("GARMIN_PASSWORD"))
+
 
 
 
